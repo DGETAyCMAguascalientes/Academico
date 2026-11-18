@@ -7,14 +7,14 @@
   dialog.innerHTML = `
     <div class="pdf-viewer-shell">
       <header class="pdf-viewer-head">
-        <h2 class="pdf-viewer-heading" id="pdf-viewer-title">Documento PDF</h2>
+        <h2 class="pdf-viewer-heading" id="pdf-viewer-title">Vista previa del documento</h2>
         <div class="pdf-viewer-actions">
           <a class="pdf-viewer-open" target="_blank" rel="noopener noreferrer">Abrir aparte</a>
           <a class="pdf-viewer-download" download>Descargar</a>
           <button class="pdf-viewer-close" type="button" aria-label="Cerrar visor">×</button>
         </div>
       </header>
-      <iframe class="pdf-viewer-frame" title="Vista previa del documento PDF" loading="lazy"></iframe>
+      <iframe class="pdf-viewer-frame" title="Vista previa del documento" loading="lazy"></iframe>
       <p class="pdf-viewer-help">Si la vista previa no aparece en tu navegador, usa «Abrir aparte» o «Descargar».</p>
     </div>`;
   document.body.append(dialog);
@@ -26,10 +26,6 @@
   const closeButton = dialog.querySelector('.pdf-viewer-close');
   let returnFocus = null;
 
-  function isPdfLink(link, url) {
-    return link.dataset.pdfViewer === 'true' || /\.pdf$/i.test(url.pathname);
-  }
-
   document.addEventListener('click', event => {
     const link = event.target.closest('a[href]');
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -37,27 +33,33 @@
     let url;
     try { url = new URL(link.href, location.href); } catch { return; }
 
+    const isPdf = /\.pdf$/i.test(url.pathname);
     const isDocx = /\.docx$/i.test(url.pathname);
-    // If it's a docx without preview, let the browser download it directly without blocking modal
-    if (isDocx && !link.dataset.docxPreview) {
-      link.setAttribute('download', decodeURIComponent(url.pathname.split('/').pop()));
-      return;
-    }
 
-    if (!isDocx && !isPdfLink(link, url)) return;
+    if (!isPdf && !isDocx) return;
 
     event.preventDefault();
     returnFocus = link;
-    const label = link.querySelector('.mat-title')?.textContent?.trim() || link.textContent.trim() || 'Documento PDF';
+    const label = link.querySelector('.mat-title')?.textContent?.trim() || link.textContent.trim() || 'Documento';
     title.textContent = label;
     openLink.href = url.href;
-    openLink.textContent = 'Abrir aparte';
+    openLink.textContent = isDocx ? 'Abrir archivo' : 'Abrir aparte';
     downloadLink.href = url.href;
     downloadLink.download = decodeURIComponent(url.pathname.split('/').pop());
-    downloadLink.textContent = 'Descargar';
-    frame.title = 'Vista previa del documento PDF';
-    frame.src = url.href + '#toolbar=1&navpanes=0&view=FitH';
-    dialog.querySelector('.pdf-viewer-help').textContent = 'Si la vista previa no aparece en tu navegador, usa «Abrir aparte» o «Descargar».';
+    downloadLink.textContent = isDocx ? 'Descargar DOCX' : 'Descargar PDF';
+
+    if (isDocx) {
+      // Visualizar documento Word usando el visor oficial de Microsoft Office Online
+      const officeViewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(url.href);
+      frame.title = 'Vista previa de documento Word';
+      frame.src = officeViewerUrl;
+      dialog.querySelector('.pdf-viewer-help').textContent = 'Vista previa interactiva de Word. Puedes verificar el contenido y pulsar «Descargar DOCX» cuando lo desees.';
+    } else {
+      frame.title = 'Vista previa del documento PDF';
+      frame.src = url.href + '#toolbar=1&navpanes=0&view=FitH';
+      dialog.querySelector('.pdf-viewer-help').textContent = 'Si la vista previa no aparece en tu navegador, usa «Abrir aparte» o «Descargar PDF».';
+    }
+
     if (!dialog.open) dialog.showModal();
     closeButton.focus();
   });
